@@ -16,7 +16,7 @@ public class ArgumentProcessing
     /// <exception cref="Exception"></exception> Intern error, Argument error (user made mistake)
     public bool Parser(string[] args, ref string? url, ref string? interfaceName, ref object[] port, ref int waitTime)
     {
-        args = args.Skip(1).ToArray();
+        //args = args.Skip(1).ToArray();
         
         int argState = 0;
         foreach (string arg in args)
@@ -53,7 +53,7 @@ public class ArgumentProcessing
                     case 1:
                         if(interfaceName != null)
                             throw new Exception("Argument error: multiple server interfaces");
-                        interfaceName = arg;
+                        interfaceName = GetInterface(arg);
                         break;
                     case 2 or 3:
                         int index = argState == 2 ? 0 : 2;
@@ -141,5 +141,17 @@ public class ArgumentProcessing
             Console.WriteLine($"MAC Address: {ni.GetPhysicalAddress()}");
             Console.WriteLine(new string('-', 40));
         }
+    }
+
+    string GetInterface(string interfaceName)
+    {
+        foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
+        {
+            if (ni.Name == interfaceName)
+            {
+                return ni.Name;
+            }
+        }
+        throw new Exception("Interface not found");
     }
 }
