@@ -15,7 +15,27 @@ public class NetworkUtilities
         return addresses;
     }
 
-    public byte[] CreateTcpPacket(IPAddress address, int port)
+    public int SendPacket(Socket rawSocket, IPAddress address, int port)
+    {
+        byte[] tcpPacket;
+        byte[] buffer = new byte[4096];
+        
+        EndPoint endPoint = new IPEndPoint(address, port);
+        // Manually craft a TCP SYN packet
+        tcpPacket = CreateTcpPacket(address, port);
+        // Send raw TCP packet
+        rawSocket.SendTo(tcpPacket, endPoint);
+                    
+        int result = Receive(rawSocket, address, endPoint, buffer);
+        if (result == 0)
+        {
+            rawSocket.SendTo(tcpPacket, endPoint);
+            return Receive(rawSocket, address, endPoint, buffer);
+        }
+        return result;
+    }
+    
+    private byte[] CreateTcpPacket(IPAddress address, int port)
     {
 
         byte[] packet;
@@ -34,7 +54,43 @@ public class NetworkUtilities
 
         return packet;
     }
+    
+    private int Receive(Socket socket, IPAddress address, EndPoint endPoint, byte[] buffer)
+    {
+        try
+        {
+            while (true)
+            {
+                int received = socket.ReceiveFrom(buffer, ref endPoint);
+                if (received > 0)
+                    return IsAckOrRstPacket(buffer, address.ToString());
+            }
+        }
+        catch (Exception e)
+        {
+            return 0;
+        }
+        
+    }
+    private int IsAckOrRstPacket(byte[] buffer, string targetIp)
+    {
+        // Extract source IP (Bytes 12-15 in IPv4 header)
+        string sourceIp = $"{buffer[12]}.{buffer[13]}.{buffer[14]}.{buffer[15]}";
 
+        // Extract TCP Flags (Byte 33 in IP + TCP header)
+        int tcpFlags = buffer[33];
+
+        bool isAck = (tcpFlags & 0x10) != 0; // ACK flag is 0x10 (00010000)
+        bool isRst = (tcpFlags & 0x04) != 0; // RST flag is 0x04 (00000100)
+        if(sourceIp == targetIp)
+        {
+            if (isRst)
+                return 2;
+            return isAck ? 1 : 0;
+        }
+        return 0;
+    }
+    
     public void BindToInterface(Socket socket, string interfaceName)
     {
         byte[] ifNameBytes = System.Text.Encoding.ASCII.GetBytes(interfaceName + "\0");

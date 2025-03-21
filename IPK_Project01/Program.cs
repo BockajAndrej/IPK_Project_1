@@ -1,56 +1,22 @@
-﻿namespace IPK_Project01;
+﻿using System.Security.Principal;
+
+namespace IPK_Project01;
 
 internal class Program
 {
-    static int IsAckOrRstPacket(byte[] buffer, string targetIp)
+    static void Print(int value, IPAddress address, int port, bool isTcpCon)
     {
-        // Extract source IP (Bytes 12-15 in IPv4 header)
-        string sourceIp = $"{buffer[12]}.{buffer[13]}.{buffer[14]}.{buffer[15]}";
-
-        // Extract TCP Flags (Byte 33 in IP + TCP header)
-        int tcpFlags = buffer[33];
-
-        bool isAck = (tcpFlags & 0x10) != 0; // ACK flag is 0x10 (00010000)
-        bool isRst = (tcpFlags & 0x04) != 0; // RST flag is 0x04 (00000100)
-        if(sourceIp == targetIp)
-        {
-            if (isRst)
-                return 2;
-            return isAck ? 1 : 0;
-        }
-        return 0;
-    }
-
-    static void Receive(Socket socket, IPAddress address, EndPoint endPoint, byte[] buffer)
-    {
-        try
-        {
-            while (true)
-            {
-                int received = socket.ReceiveFrom(buffer, ref endPoint);
-                if (received > 0)
-                {
-                    int result = IsAckOrRstPacket(buffer, address.ToString());
-                    if (result == 1)
-                    {
-                        Console.WriteLine("ACK received from " + address);
-                        break;
-                    }
-                    else if (result == 2)
-                    {
-                        Console.WriteLine("RST received from " + address);
-                        break;
-                    }
-                                
-                }
-            }
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-            throw;
-        }
-        
+        string protocol = isTcpCon ? "TCP" : "UDP";
+        string status = "";
+        if (value == 0)
+            status = "filtered";
+        else if (value == 1)
+            status = "open";
+        else if (value == 2)
+            status = "closed";
+        else
+            status = "undefined value";
+        Console.WriteLine("{0} {1} {2} {3}", address.ToString(), port, protocol, status);
     }
     
     private static void Main(string[] args)
@@ -81,26 +47,25 @@ internal class Program
                 network.BindToInterface(rawSocket, interfaceName!);
                 
                 rawSocket.ReceiveTimeout = waitTime;
-
-                // Destination (IP on port num)
-                EndPoint endPoint;
-                byte[] tcpPacket;
-                byte[] buffer = new byte[4096];
                 
-                if (port[0] is int num)
+                int portIndex = 0;
+                foreach (object p in port)
                 {
-                    endPoint = new IPEndPoint(address, num);
-                    // Manually craft a TCP SYN packet
-                    tcpPacket = network.CreateTcpPacket(address, num);
-                    // Send raw TCP packet
-                    rawSocket.SendTo(tcpPacket, endPoint);
-                    
-                    Receive(rawSocket, address, endPoint, buffer);
-
-                }
-                else if (port[0] is int[] nums)
-                {
-                    endPoint = new IPEndPoint(address, nums[0]);
+                    int result = 0;
+                    if (p is int number) // Ak je to jedno číslo
+                    {
+                        result = network.SendPacket(rawSocket, address, number);
+                        Print(result, address, number, (portIndex < 1));
+                    }
+                    else if (p is int[] numbers) // Ak je to pole čísel
+                    {
+                        foreach (int num in numbers)
+                        {
+                            result = network.SendPacket(rawSocket, address, num);
+                            Print(result, address, num, (portIndex < 1));
+                        }
+                    }
+                    portIndex++;
                 }
                 
                 rawSocket.Close();
