@@ -1,3 +1,4 @@
+
 namespace IPK_Project01;
 
 public class IpUtilities : NetworkUtilities
@@ -6,6 +7,26 @@ public class IpUtilities : NetworkUtilities
     {
         var host = Dns.GetHostEntry(Dns.GetHostName());
         return host.AddressList.FirstOrDefault(ip => ip.AddressFamily == AddressFamily.InterNetwork)?.ToString() ?? "No IPv4 found";
+    }
+    public string GetLocalIPv6Address()
+    {
+        foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
+        {
+            if (ni.OperationalStatus != OperationalStatus.Up)
+                continue;
+
+            foreach (UnicastIPAddressInformation ip in ni.GetIPProperties().UnicastAddresses)
+            {
+                if (ip.Address.AddressFamily == AddressFamily.InterNetworkV6 &&
+                    !ip.Address.IsIPv6LinkLocal &&         // Skip link-local (fe80::)
+                    !IPAddress.IsLoopback(ip.Address))     // Skip loopback (::1)
+                {
+                    return ip.Address.ToString();
+                }
+            }
+        }
+
+        throw new Exception("No valid IPv6 address found.");
     }
     public void IPv4_Header(ref byte[] packet, byte[] destIp)
     {
@@ -30,24 +51,26 @@ public class IpUtilities : NetworkUtilities
         packet[11] = (byte)(checksum & 0xFF);
     }
 
-    public void IPv6_Header(ref byte[] packet)
+    public void IPv6_Header(ref byte[] packet, byte[] destIp)
     {
         // Constructing IPv6 Header (40 bytes)
         packet[0] = 0x60; // Version (6) and Traffic Class
         packet[1] = 0x00; // Traffic Class (continued)
         packet[2] = 0x00; packet[3] = 0x00; // Flow Label
-        packet[4] = 0x00; packet[5] = 0x14; // Payload Length (20 bytes for TCP header)
+        
+        // Payload Length (e.g., 20 bytes for TCP header only)
+        ushort payloadLength = 20; // Replace with actual TCP+data length if needed
+        packet[4] = (byte)(payloadLength >> 8);
+        packet[5] = (byte)(payloadLength & 0xFF);
+        
         packet[6] = 0x06; // Next Header (TCP)
         packet[7] = 0x40; // Hop Limit (64)
 
-        // Source IPv6 Address (2001:db8::1)
-        byte[] sourceIp = { 0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 };
-        // Copies source address into packet array at the correct position 
-        Buffer.BlockCopy(sourceIp, 0, packet, 8, 16);
+        // Source IP (16 bytes)
+        byte[] srcIp = IPAddress.Parse(GetLocalIPv6Address()).GetAddressBytes();
+        Buffer.BlockCopy(srcIp, 0, packet, 8, 16);
 
-        // Destination IPv6 Address (Google DNS IPv6)
-        byte[] destIp = { 0x20, 0x01, 0x48, 0x60, 0x48, 0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x88 };
-        // Copies destination address into packet array at the correct position
+        // Destination IP (16 bytes)
         Buffer.BlockCopy(destIp, 0, packet, 24, 16);
     }
     private ushort ComputeIPv4Checksum(byte[] header)

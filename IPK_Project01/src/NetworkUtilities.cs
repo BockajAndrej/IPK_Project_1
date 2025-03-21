@@ -41,16 +41,22 @@ public class NetworkUtilities
         byte[] packet;
         if (address.AddressFamily == AddressFamily.InterNetwork)
         {
-            packet = new byte[40]; // 20 bytes for IP header + 20 bytes for TCP header
+            // 20 bytes for IP header + 20 bytes for TCP header
+            packet = new byte[40]; 
             _ip.IPv4_Header(ref packet, address.GetAddressBytes());
-            _tcp.TCP_Header(ref packet, address.GetAddressBytes(), port);
+            _tcp.TCP_Header(ref packet, address.GetAddressBytes(), port, 20);
         }
         else if (address.AddressFamily == AddressFamily.InterNetworkV6)
-            packet = new byte[60]; // 40 bytes for IP header + 20 bytes for TCP header
+        {
+            // 40 bytes for IP header + 20 bytes for TCP header
+            packet = new byte[60];
+            _ip.IPv6_Header(ref packet, address.GetAddressBytes());
+            _tcp.TCP_Header(ref packet, address.GetAddressBytes(), port, 40);
+        }
         else
             throw new Exception("Invalid address family.");
 
-        Console.WriteLine($"Packet size: {packet.Length}");
+        //Console.WriteLine($"Packet size: {packet.Length}");
 
         return packet;
     }
@@ -66,7 +72,7 @@ public class NetworkUtilities
                     return IsAckOrRstPacket(buffer, address.ToString());
             }
         }
-        catch (Exception e)
+        catch
         {
             return 0;
         }

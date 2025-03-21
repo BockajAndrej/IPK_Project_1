@@ -39,6 +39,7 @@ internal class Program
             IPAddress[] addresses = network.ResolveDomain(url!);
             foreach (IPAddress address in addresses)
             {
+                Console.WriteLine(address.ToString());
                 // Create raw TCP socket (only works on Linux)
                 Socket rawSocket = new Socket(address.AddressFamily, SocketType.Raw, ProtocolType.Tcp);
                 // Set socket options to include IP headers 
@@ -54,8 +55,11 @@ internal class Program
                     int result = 0;
                     if (p is int number) // Ak je to jedno číslo
                     {
-                        result = network.SendPacket(rawSocket, address, number);
-                        Print(result, address, number, (portIndex < 1));
+                        if(number > 0)
+                        {
+                            result = network.SendPacket(rawSocket, address, number);
+                            Print(result, address, number, (portIndex < 1));
+                        }
                     }
                     else if (p is int[] numbers) // Ak je to pole čísel
                     {
@@ -69,13 +73,13 @@ internal class Program
                 }
                 
                 rawSocket.Close();
-                Console.WriteLine("Raw socket was closed!");
             }
 
         }
         catch (Exception ex)
         {
             Console.WriteLine(ex.Message);
+            throw;
         }
     }
 }
