@@ -7,7 +7,7 @@ internal class Program
     static void Print(int value, IPAddress address, int port, bool isTcpCon)
     {
         string protocol = isTcpCon ? "TCP" : "UDP";
-        string status = "";
+        string status;
         if (value == 0)
             status = "filtered";
         else if (value == 1)
@@ -35,20 +35,12 @@ internal class Program
             if (argProcess.Parser(args, ref url, ref interfaceName, ref port, ref waitTime) == false)
                 return;
 
-            //From there
             IPAddress[] addresses = network.ResolveDomain(url!);
+            
             foreach (IPAddress address in addresses)
             {
-                Console.WriteLine(address.ToString());
-                // Create raw TCP socket (only works on Linux)
-                Socket rawSocket = new Socket(address.AddressFamily, SocketType.Raw, ProtocolType.Tcp);
-                // Set socket options to include IP headers 
-                rawSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.HeaderIncluded, true);
-                
-                network.BindToInterface(rawSocket, interfaceName!);
-                
-                rawSocket.ReceiveTimeout = waitTime;
-                
+                if(address.AddressFamily != AddressFamily.InterNetwork)
+                    continue;
                 int portIndex = 0;
                 foreach (object p in port)
                 {
@@ -57,22 +49,19 @@ internal class Program
                     {
                         if(number > 0)
                         {
-                            result = network.SendPacket(rawSocket, address, number);
-                            Print(result, address, number, (portIndex < 1));
-                        }
+                            result = network.CheckPort(portIndex<2, address, interfaceName, waitTime,number);
+                            Print(result, address, result, (portIndex < 1));                        }
                     }
                     else if (p is int[] numbers) // Ak je to pole čísel
                     {
                         foreach (int num in numbers)
                         {
-                            result = network.SendPacket(rawSocket, address, num);
-                            Print(result, address, num, (portIndex < 1));
+                            result = network.CheckPort(portIndex<2, address, interfaceName, waitTime,num);
+                            Print(result, address, result, (portIndex < 1));
                         }
                     }
                     portIndex++;
                 }
-                
-                rawSocket.Close();
             }
 
         }

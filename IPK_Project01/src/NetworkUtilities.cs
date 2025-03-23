@@ -4,6 +4,7 @@ public class NetworkUtilities
 {
     private static IpUtilities _ip = new IpUtilities();
     private static TcpUtilities _tcp = new TcpUtilities();
+    private static UdpUtilities _udp = new UdpUtilities();
 
     public IPAddress[] ResolveDomain(string serverUrl)
     {
@@ -15,7 +16,56 @@ public class NetworkUtilities
         return addresses;
     }
 
-    public int SendPacket(Socket rawSocket, IPAddress address, int port)
+    public int  CheckPort(bool isTcp, IPAddress address, string interfaceName, int waitTime, int port)
+    {
+        if (isTcp)
+        { 
+            return CheckTCP(address, interfaceName, waitTime, port);
+        }
+        else
+        {
+            return CheckUDP(address, interfaceName, waitTime, port);
+        }
+    }
+    
+    private int CheckTCP(IPAddress address, string interfaceName, int waitTime, int port)
+    {
+        Socket? socket = null;
+        // Create raw TCP socket (only works on Linux)
+        socket = new Socket(address.AddressFamily, SocketType.Raw, ProtocolType.Tcp);
+        // Set socket options to include IP headers 
+        if (address.AddressFamily == AddressFamily.InterNetwork)
+            socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.HeaderIncluded, true);
+        else
+        {
+            string srcIp = _ip.GetLocalIpAddress();
+            socket.Bind(new IPEndPoint(IPAddress.Parse(srcIp), 0));
+        }
+
+        BindToInterface(socket, interfaceName!);
+
+        socket.ReceiveTimeout = waitTime;
+        
+        int result = SendPacket(socket, address, port);
+        
+        socket.Close();
+        return result;
+    }
+
+    private int CheckUDP(IPAddress address, string interace, int waitTime, int port)
+    {
+        try
+        {
+            _udp.sendPacket(address.ToString(), port);
+            return 1;
+        }
+        catch
+        {
+            return 2;
+        }
+    }
+    
+    public int SendPacket(Socket socket, IPAddress address, int port)
     {
         byte[] tcpPacket;
         byte[] buffer = new byte[4096];
@@ -24,13 +74,13 @@ public class NetworkUtilities
         // Manually craft a TCP SYN packet
         tcpPacket = CreateTcpPacket(address, port);
         // Send raw TCP packet
-        rawSocket.SendTo(tcpPacket, endPoint);
+        socket.SendTo(tcpPacket, endPoint);
                     
-        int result = Receive(rawSocket, address, endPoint, buffer);
+        int result = Receive(socket, address, endPoint, buffer);
         if (result == 0)
         {
-            rawSocket.SendTo(tcpPacket, endPoint);
-            return Receive(rawSocket, address, endPoint, buffer);
+            socket.SendTo(tcpPacket, endPoint);
+            return Receive(socket, address, endPoint, buffer);
         }
         return result;
     }
@@ -44,14 +94,14 @@ public class NetworkUtilities
             // 20 bytes for IP header + 20 bytes for TCP header
             packet = new byte[40]; 
             _ip.IPv4_Header(ref packet, address.GetAddressBytes());
-            _tcp.TCP_Header(ref packet, address.GetAddressBytes(), port, 20);
+            _tcp.TCP_Header(ref packet, address.GetAddressBytes(), port, 20, address.AddressFamily == AddressFamily.InterNetwork);
         }
         else if (address.AddressFamily == AddressFamily.InterNetworkV6)
         {
             // 40 bytes for IP header + 20 bytes for TCP header
             packet = new byte[60];
             _ip.IPv6_Header(ref packet, address.GetAddressBytes());
-            _tcp.TCP_Header(ref packet, address.GetAddressBytes(), port, 40);
+            _tcp.TCP_Header(ref packet, address.GetAddressBytes(), port, 40, address.AddressFamily == AddressFamily.InterNetwork);
         }
         else
             throw new Exception("Invalid address family.");

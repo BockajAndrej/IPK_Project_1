@@ -2,7 +2,7 @@ namespace IPK_Project01;
 
 public class TcpUtilities : IpUtilities
 {
-    public void TCP_Header(ref byte[] packet, byte[] destIp, int port, int offset)
+    public void TCP_Header(ref byte[] packet, byte[] destIp, int port, int offset, bool isIPv4)
     {
         // Constructing TCP Header
         packet[offset + 0] = 0xAA; packet[offset + 1] = 0xBB; // Source Port
@@ -17,21 +17,36 @@ public class TcpUtilities : IpUtilities
 
         // Source IP 
         byte[] srcIp = IPAddress.Parse(GetLocalIpAddress()).GetAddressBytes();
+        
         // Compute TCP checksum
-        ushort tcpChecksum = ComputeTcpChecksum(srcIp, destIp, packet[offset..(offset+20)]);
+        ushort tcpChecksum;
+        
+        tcpChecksum = ComputeTcpChecksum(srcIp, destIp, packet[offset..(offset + 20)], isIPv4);
         packet[offset + 16] = (byte)(tcpChecksum >> 8);
         packet[offset + 17] = (byte)(tcpChecksum & 0xFF);
     }
     
-    private static ushort ComputeTcpChecksum(byte[] sourceIp, byte[] destIp, byte[] tcpHeader)
+    private static ushort ComputeTcpChecksum(byte[] sourceIp, byte[] destIp, byte[] tcpHeader, bool isIpv4)
     {
         long sum = 0;
-
-        // IPv4 Pseudo-Header (Source IP + Destination IP)
-        for (int i = 0; i < 4; i += 2)
+        
+        if(isIpv4)
         {
-            sum += (ushort)((sourceIp[i] << 8) | sourceIp[i + 1]);
-            sum += (ushort)((destIp[i] << 8) | destIp[i + 1]);
+            // IPv4 Pseudo-Header (Source IP + Destination IP)
+            for (int i = 0; i < 4; i += 2)
+            {
+                sum += (ushort)((sourceIp[i] << 8) | sourceIp[i + 1]);
+                sum += (ushort)((destIp[i] << 8) | destIp[i + 1]);
+            }
+        }
+        else
+        {
+            // IPv6 Pseudo-Header (Source IP + Destination IP)
+            for (int i = 0; i < 16; i += 2)
+            {
+                sum += (ushort)((sourceIp[i] << 8) | sourceIp[i + 1]);
+                sum += (ushort)((destIp[i] << 8) | destIp[i + 1]);
+            }
         }
 
         // Add Protocol (6 for TCP) and TCP Length (20 bytes)

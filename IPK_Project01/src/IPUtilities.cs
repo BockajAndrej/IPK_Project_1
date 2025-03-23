@@ -3,7 +3,7 @@ namespace IPK_Project01;
 
 public class IpUtilities : NetworkUtilities
 {
-    protected static string GetLocalIpAddress()
+    public string GetLocalIpAddress()
     {
         var host = Dns.GetHostEntry(Dns.GetHostName());
         return host.AddressList.FirstOrDefault(ip => ip.AddressFamily == AddressFamily.InterNetwork)?.ToString() ?? "No IPv4 found";
