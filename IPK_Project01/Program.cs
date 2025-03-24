@@ -50,14 +50,14 @@ internal class Program
                         if(number > 0)
                         {
                             result = network.CheckPort(portIndex<2, address, interfaceName, waitTime,number);
-                            Print(result, address, result, (portIndex < 1));                        }
+                            Print(result, address, number, (portIndex < 1));                        }
                     }
                     else if (p is int[] numbers) // Ak je to pole čísel
                     {
                         foreach (int num in numbers)
                         {
                             result = network.CheckPort(portIndex<2, address, interfaceName, waitTime,num);
-                            Print(result, address, result, (portIndex < 1));
+                            Print(result, address, num, (portIndex < 1));
                         }
                     }
                     portIndex++;

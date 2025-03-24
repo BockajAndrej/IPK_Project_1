@@ -54,15 +54,13 @@ public class NetworkUtilities
 
     private int CheckUDP(IPAddress address, string interace, int waitTime, int port)
     {
-        try
+        int result = 0;
+        do
         {
-            _udp.sendPacket(address.ToString(), port);
-            return 1;
-        }
-        catch
-        {
-            return 2;
-        }
+            _udp.SendPacket(address.ToString(), port);
+            result = _udp.ReceivePacket(waitTime);
+        } while (result == 0);
+        return result;
     }
     
     public int SendPacket(Socket socket, IPAddress address, int port)
