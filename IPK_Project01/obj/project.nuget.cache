@@ -1,8 +1,14 @@
 {
   "version": 2,
-  "dgSpecHash": "U2EDnD4cFbQ=",
+  "dgSpecHash": "EIh+540Ib2E=",
   "success": true,
   "projectFilePath": "C:\\Users\\andrej.bockaj\\OneDrive - MTS\\Pracovná plocha\\VUT FIT\\4S\\IPK\\IPK_Project01\\IPK_Project01\\IPK_Project01.csproj",
-  "expectedPackageFiles": [],
+  "expectedPackageFiles": [
+    "C:\\Users\\andrej.bockaj\\.nuget\\packages\\packetdotnet\\1.4.8-pre20\\packetdotnet.1.4.8-pre20.nupkg.sha512",
+    "C:\\Users\\andrej.bockaj\\.nuget\\packages\\sharppcap\\6.3.0\\sharppcap.6.3.0.nupkg.sha512",
+    "C:\\Users\\andrej.bockaj\\.nuget\\packages\\system.memory\\4.5.5\\system.memory.4.5.5.nupkg.sha512",
+    "C:\\Users\\andrej.bockaj\\.nuget\\packages\\system.runtime.compilerservices.unsafe\\6.0.0\\system.runtime.compilerservices.unsafe.6.0.0.nupkg.sha512",
+    "C:\\Users\\andrej.bockaj\\.nuget\\packages\\system.text.encoding.codepages\\6.0.0\\system.text.encoding.codepages.6.0.0.nupkg.sha512"
+  ],
   "logs": []
 }

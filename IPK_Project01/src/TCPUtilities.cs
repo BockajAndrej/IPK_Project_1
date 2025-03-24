@@ -2,10 +2,10 @@ namespace IPK_Project01;
 
 public class TcpUtilities : IpUtilities
 {
-    public void TCP_Header(ref byte[] packet, byte[] destIp, int port, int offset, bool isIPv4)
+    public void TCP_Header(ref byte[] packet, byte[] srcIp, byte[] destIp, int srcPort, int port, int offset, bool isIPv4)
     {
         // Constructing TCP Header
-        packet[offset + 0] = 0xAA; packet[offset + 1] = 0xBB; // Source Port
+        packet[offset + 0] = (byte)(srcPort >> 8); packet[offset + 1] = (byte)(srcPort & 0xFF); // Source Port
         packet[offset + 2] = 0x00; packet[offset + 3] = (byte)port; // Dest Port
         packet[offset + 4] = 0x00; packet[offset + 5] = 0x00; packet[offset + 6] = 0x00; packet[offset + 7] = 0x00; // Seq Num
         packet[offset + 8] = 0x00; packet[offset + 9] = 0x00; packet[offset + 10] = 0x00; packet[offset + 11] = 0x00; // Ack Num
@@ -14,14 +14,9 @@ public class TcpUtilities : IpUtilities
         packet[offset + 14] = 0x72; packet[offset + 15] = 0x10; // Window Size
         packet[offset + 16] = 0x00; packet[offset + 17] = 0x00; // Checksum
         packet[offset + 18] = 0x00; packet[offset + 19] = 0x00; // Urgent Pointer
-
-        // Source IP 
-        byte[] srcIp = IPAddress.Parse(GetLocalIpAddress()).GetAddressBytes();
         
         // Compute TCP checksum
-        ushort tcpChecksum;
-        
-        tcpChecksum = ComputeTcpChecksum(srcIp, destIp, packet[offset..(offset + 20)], isIPv4);
+        ushort tcpChecksum = ComputeTcpChecksum(srcIp, destIp, packet[offset..(offset + 20)], isIPv4);
         packet[offset + 16] = (byte)(tcpChecksum >> 8);
         packet[offset + 17] = (byte)(tcpChecksum & 0xFF);
     }
