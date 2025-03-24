@@ -25,8 +25,8 @@ public class TcpUtilities : IpUtilities
         packet[offset + 16] = (byte)(tcpChecksum >> 8);
         packet[offset + 17] = (byte)(tcpChecksum & 0xFF);
     }
-    
-    private static ushort ComputeTcpChecksum(byte[] sourceIp, byte[] destIp, byte[] tcpHeader, bool isIpv4)
+
+    public ushort ComputeTcpChecksum(byte[] sourceIp, byte[] destIp, byte[] tcpHeader, bool isIpv4)
     {
         long sum = 0;
         

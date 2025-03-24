@@ -38,12 +38,64 @@ public class NetworkUtilities
             socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.HeaderIncluded, true);
         else
         {
-            string srcIp = _ip.GetLocalIpAddress();
-            socket.Bind(new IPEndPoint(IPAddress.Parse(srcIp), 0));
+            IPAddress.TryParse(_ip.GetLocalIPv6Address(), out IPAddress sourceAddress);
+            
+            byte[] targetIp = address.GetAddressBytes();
+            byte[] sourceIp = sourceAddress.GetAddressBytes();
+            byte[] tcpHeader = new byte[20];
+            
+            //Sour port
+            tcpHeader[0] = sourceIp[0];
+            tcpHeader[1] = sourceIp[1];
+            //Dest port
+            tcpHeader[2] = targetIp[0];
+            tcpHeader[3] = targetIp[1];
+            
+            //Sequence number 
+            tcpHeader[4] = 0x00;
+            tcpHeader[5] = 0x00;
+            tcpHeader[6] = 0x00;
+            tcpHeader[7] = 0x00;
+            
+            //Ack
+            tcpHeader[8] = 0x00;
+            tcpHeader[9] = 0x00;
+            tcpHeader[10] = 0x00;
+            tcpHeader[11] = 0x00;
+            
+            //Data offrest
+            tcpHeader[12] = 0x50;
+            tcpHeader[13] = 0x02;
+            
+            //Checksum
+            tcpHeader[14] = 0x00;
+            tcpHeader[15] = 0x00;
+            
+            //Urgent pointer
+            tcpHeader[16] = 0x00;
+            tcpHeader[17] = 0x00;
+            
+            //Pseudo header for TCP checksum
+            byte[] pseudoHeader = new byte[40 + tcpHeader.Length];
+            Array.Copy(sourceIp, 0, pseudoHeader, 0, 16);
+            Array.Copy(targetIp, 0, pseudoHeader, 16, 16);
+            pseudoHeader[32] = 0x00; //Reserved
+            pseudoHeader[33] = 0x06; //TCP
+            pseudoHeader[34] = (byte)(tcpHeader.Length >> 8);
+            pseudoHeader[35] = (byte)(tcpHeader.Length & 0xFF);
+            Array.Copy(tcpHeader, 0, pseudoHeader, 36, tcpHeader.Length);
+            
+            ushort tcpChecksum = _tcp.ComputeTcpChecksum(sourceIp, targetIp, pseudoHeader , false);
+            tcpHeader[16] = (byte)(tcpChecksum >> 8);
+            tcpHeader[17] = (byte)(tcpChecksum & 0xFF);
+            
+            Socket rawSocket = new Socket(address.AddressFamily, SocketType.Raw, ProtocolType.Tcp);
+            rawSocket.Bind(new IPEndPoint(new IPAddress(sourceIp), 0));
+            rawSocket.SendTo(tcpHeader, new IPEndPoint(IPAddress.Parse(address.ToString()), 0));
+            
+            rawSocket.Close();
         }
-
-        BindToInterface(socket, interfaceName!);
-
+        
         socket.ReceiveTimeout = waitTime;
         
         int result = SendPacket(socket, address, port);
@@ -98,7 +150,7 @@ public class NetworkUtilities
         {
             // 40 bytes for IP header + 20 bytes for TCP header
             packet = new byte[60];
-            _ip.IPv6_Header(ref packet, address.GetAddressBytes());
+            //_ip.IPv6_Header(ref packet, address.GetAddressBytes());
             _tcp.TCP_Header(ref packet, address.GetAddressBytes(), port, 40, address.AddressFamily == AddressFamily.InterNetwork);
         }
         else
@@ -144,18 +196,4 @@ public class NetworkUtilities
         }
         return 0;
     }
-    
-    public void BindToInterface(Socket socket, string interfaceName)
-    {
-        byte[] ifNameBytes = System.Text.Encoding.ASCII.GetBytes(interfaceName + "\0");
-        int result = setsockopt(socket.Handle, (int)SocketOptionLevel.Socket, 25, ifNameBytes, ifNameBytes.Length);
-
-        if (result != -1)
-        {
-            int errorCode = Marshal.GetLastWin32Error();
-            throw new Exception($"Failed to bind to interface {interfaceName}. Error Code: {errorCode}");
-        }
-    }
-    [DllImport("libc", SetLastError = true)]
-    private static extern int setsockopt(IntPtr socket, int level, int optname, byte[] optval, int optlen);
 }

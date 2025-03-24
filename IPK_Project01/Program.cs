@@ -39,8 +39,6 @@ internal class Program
             
             foreach (IPAddress address in addresses)
             {
-                if(address.AddressFamily != AddressFamily.InterNetwork)
-                    continue;
                 int portIndex = 0;
                 foreach (object p in port)
                 {
