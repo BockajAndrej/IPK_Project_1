@@ -6,7 +6,7 @@ public class TcpUtilities : IpUtilities
     {
         // Constructing TCP Header
         packet[offset + 0] = (byte)(srcPort >> 8); packet[offset + 1] = (byte)(srcPort & 0xFF); // Source Port
-        packet[offset + 2] = 0x00; packet[offset + 3] = (byte)port; // Dest Port
+        packet[offset + 2] = (byte)(port >> 8); packet[offset + 3] = (byte)(port & 0xFF); // Dest Port
         packet[offset + 4] = 0x00; packet[offset + 5] = 0x00; packet[offset + 6] = 0x00; packet[offset + 7] = 0x00; // Seq Num
         packet[offset + 8] = 0x00; packet[offset + 9] = 0x00; packet[offset + 10] = 0x00; packet[offset + 11] = 0x00; // Ack Num
         packet[offset + 12] = 0x50; // Data offset = 5 (<<4), Reserved + NS

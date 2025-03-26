@@ -1,6 +1,4 @@
-﻿using System.Security.Principal;
-
-namespace IPK_Project01;
+﻿namespace IPK_Project01;
 
 internal class Program
 {
@@ -14,6 +12,8 @@ internal class Program
             status = "open";
         else if (value == 2)
             status = "closed";
+        else if (value == 3)
+            status = "wrong packet received";
         else
             status = "undefined value";
         Console.WriteLine("{0} {1} {2} {3}", address.ToString(), port, protocol, status);
@@ -70,6 +70,24 @@ internal class Program
         port = 0;
         isTcpCon = false;
         return false;
+    }
+    
+    static int numberOfPorts(object[] ports)
+    {
+        int result = 0;
+        foreach (var port in ports)
+        {
+            if (port is int number)
+                result++;
+            else if (port is int[] numbers)
+            {
+                foreach (var num in numbers)
+                {
+                    result++;
+                }
+            }
+        }
+        return result;
     }
     
     private static void Main(string[] args)

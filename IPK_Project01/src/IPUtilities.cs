@@ -1,4 +1,3 @@
-
 namespace IPK_Project01;
 
 public class IpUtilities : NetworkUtilities
@@ -26,7 +25,7 @@ public class IpUtilities : NetworkUtilities
         return null;
     }
     
-    public void IPv4_Header(ref byte[] packet, byte[] srcIp, byte[] destIp)
+    public void IPv4_Header(ref byte[] packet, byte[] srcIp, byte[] destIp, bool isTcp)
     {
         // Constructing IP Header
         packet[0] = 0x45; // IPv4, header length = 5
@@ -35,7 +34,10 @@ public class IpUtilities : NetworkUtilities
         packet[4] = 0xAB; packet[5] = 0xCD; // Identification
         packet[6] = 0x40; packet[7] = 0x00; // Flags & Fragment Offset
         packet[8] = 0x40; // TTL = 64
-        packet[9] = 0x06; // Protocol = TCP (6)
+        if (isTcp)
+            packet[9] = 0x06; // Protocol = TCP (6)
+        else
+            packet[9] = 0x11; // Protocol = UDP (17)
         packet[10] = 0; packet[11] = 0; // Header Checksum (computed later)
 
         // Source IP 

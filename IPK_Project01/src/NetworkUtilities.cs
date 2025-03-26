@@ -1,5 +1,3 @@
-using SharpPcap;
-
 namespace IPK_Project01;
 
 public class NetworkUtilities
@@ -20,99 +18,148 @@ public class NetworkUtilities
 
     public int  CheckPort(IPAddress destIp, string interfaceName, int destPort, bool isTcp, int waitTime)
     {
+        IPAddress srcIp = _ip.GetLocalIpFromDevice(interfaceName, destIp.AddressFamily);
+            
+        Random random = new Random();
+        int srcPort = random.Next(1, 65536);
+        //TCP
         if (isTcp)
         {
-            IPAddress srcIp = _ip.GetLocalIpFromDevice(interfaceName, destIp.AddressFamily);
-            
-            Random random = new Random();
-            int srcPort = random.Next(1, 65536);
+            Socket socket = new Socket(destIp.AddressFamily, SocketType.Raw, ProtocolType.Tcp);
             
             //IPv4
             if (destIp.AddressFamily == AddressFamily.InterNetwork)
             {
-                // Create raw TCP socket (only works on Linux)
-                Socket socket = new Socket(destIp.AddressFamily, SocketType.Raw, ProtocolType.Tcp);
                 socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.HeaderIncluded, true);
                 
                 EndPoint endPoint = new IPEndPoint(destIp, destPort);
                 
                 byte[] tcpPacket = new byte[40];
-                _ip.IPv4_Header(ref tcpPacket, srcIp.GetAddressBytes(), destIp.GetAddressBytes());
+                _ip.IPv4_Header(ref tcpPacket, srcIp.GetAddressBytes(), destIp.GetAddressBytes(), isTcp);
                 _tcp.TCP_Header(ref tcpPacket, srcIp.GetAddressBytes(), destIp.GetAddressBytes(), srcPort, destPort, 20, true);
                 
                 socket.SendTo(tcpPacket, endPoint);
 
-                int result = Receive(srcIp, destIp, srcPort, destPort, waitTime, true);
+                int result = Receive(srcIp, destIp, srcPort, destPort, waitTime, true, isTcp);
                 if (result == 0)
                 {
                     socket.SendTo(tcpPacket, endPoint);
-                    result = Receive(srcIp, destIp, srcPort, destPort, waitTime, true);
+                    result = Receive(srcIp, destIp, srcPort, destPort, waitTime, true, isTcp);
                 }
                 
                 socket.Close();
                 return result;
             }
+            //IPv6
             else
             {
-                byte[] tcpPacket = new byte[20];
+                socket.Bind(new IPEndPoint(new IPAddress(srcIp.GetAddressBytes()), 0));
                 
-                //_ip.IPv6_Header(ref tcpPacket, srcIp.GetAddressBytes(), destIp.GetAddressBytes());
+                byte[] tcpPacket = new byte[20];
                 _tcp.TCP_Header(ref tcpPacket, srcIp.GetAddressBytes(), destIp.GetAddressBytes(), srcPort, destPort, 0, false);
                 
-                Socket socket = new Socket(destIp.AddressFamily, SocketType.Raw, ProtocolType.Tcp);
-                socket.Bind(new IPEndPoint(new IPAddress(srcIp.GetAddressBytes()), 0));
                 socket.SendTo(tcpPacket, new IPEndPoint(destIp, 0));
                 
-                int result = Receive(srcIp, destIp, srcPort, destPort, waitTime, false);
+                int result = Receive(srcIp, destIp, srcPort, destPort, waitTime, false, isTcp);
                 
                 socket.Close();
                 return result;
             }
         }
-        return 0;
+        //UDP
+        else
+        {
+            Socket socket = new Socket(destIp.AddressFamily, SocketType.Raw, ProtocolType.Udp);
+            
+            //IPv4
+            if (destIp.AddressFamily == AddressFamily.InterNetwork)
+            {
+                socket.Bind(new IPEndPoint(srcIp, 0));
+
+                EndPoint endPoint = new IPEndPoint(destIp, destPort);
+
+                byte[] udpPacket = _udp.UDP_Header(srcIp.GetAddressBytes(), destIp.GetAddressBytes(), srcPort, destPort, true);
+                
+                socket.SendTo(udpPacket, endPoint);
+                
+                int result = Receive(srcIp, destIp, srcPort, destPort, waitTime, true, isTcp);
+
+                socket.Close();
+                return result;
+            }
+            //IPv6
+            else
+            {
+                socket.Bind(new IPEndPoint(new IPAddress(srcIp.GetAddressBytes()), 0));
+                
+                byte[] udpPacket = _udp.UDP_Header(srcIp.GetAddressBytes(), destIp.GetAddressBytes(), srcPort, destPort, false);
+                
+                socket.SendTo(udpPacket, new IPEndPoint(destIp, 0));
+                
+                int result = Receive(srcIp, destIp, srcPort, destPort, waitTime, false, isTcp);
+
+                socket.Close();
+                return result;
+            }
+        }
+        return 99;
     }
 
-    private int Receive(IPAddress srcIp, IPAddress destIp, int srcPort, int destPort, int waitTime, bool isIpv4)
+    private int Receive(IPAddress srcIp, IPAddress destIp, int srcPort, int destPort, int waitTime, bool isIpv4, bool isTcp)
     {
         Socket socket;
         byte[] buffer = new byte[4096];
-        EndPoint endPoint;
+        
+        if(isTcp)
+            socket = new Socket(destIp.AddressFamily, SocketType.Raw, ProtocolType.Tcp);
+        else
+            socket = new Socket(destIp.AddressFamily, SocketType.Raw, ProtocolType.Icmp);
         
         if (isIpv4)
         {
-            socket = new Socket(destIp.AddressFamily, SocketType.Raw, ProtocolType.Tcp);
             socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.HeaderIncluded, true);
-            socket.ReceiveTimeout = waitTime;
-        
-            socket.Bind(new IPEndPoint(IPAddress.Any, destPort));
-            
-            endPoint = new IPEndPoint(destIp, 0);
+            socket.Bind(new IPEndPoint(srcIp, destPort)); 
         }
         else
         {
-            socket = new Socket(AddressFamily.InterNetworkV6, SocketType.Raw, ProtocolType.Tcp);
             socket.Bind(new IPEndPoint(srcIp, destPort));
-            socket.ReceiveTimeout = waitTime;
-            
-            endPoint = new IPEndPoint(destIp, 0);
         }
         
+        socket.ReceiveTimeout = waitTime;
+        EndPoint endPoint = new IPEndPoint(destIp, 0);
+        
+        DateTime startTime = DateTime.Now;
         try
         {
-            while (true)
+            while ((startTime.Millisecond + waitTime) >= DateTime.Now.Millisecond)
             {
                 int received = socket.ReceiveFrom(buffer, ref endPoint);
                 if (received > 0)
                 {
-                    socket.Close();
-                    return IsAckOrRstPacket(buffer, destIp, srcPort, destPort, isIpv4);
+                    if(isTcp)
+                    {
+                        int result = IsAckOrRstPacket(buffer, destIp, srcPort, destPort, isIpv4);
+                        if(result != 99)
+                        {
+                            socket.Close();
+                            return result;
+                        }
+                    }
+                    else
+                    {
+                        socket.Close();
+                        return IsUdpOpen(buffer, isIpv4);
+                    }
                 }
             }
+            throw new SocketException((int)SocketError.TimedOut);
         }
         catch
         {
             socket.Close();
-            return 0;
+            if(isTcp)
+                return 0;
+            return 1;
         }
     }
 
@@ -126,7 +173,7 @@ public class NetworkUtilities
         {
             sourceIp = $"{buffer[12]}.{buffer[13]}.{buffer[14]}.{buffer[15]}";
             if (sourceIp != destIp.ToString())
-                return 0;
+                return 99;
         }
         else
         {
@@ -136,7 +183,7 @@ public class NetworkUtilities
             int tcpDestinationPort = (buffer[tcpHeaderStart + 2] << 8) | buffer[tcpHeaderStart + 3];
             
             if (tcpSourcePort != destPort || tcpDestinationPort != srcPort)
-                return 0;
+                return 99;
         }
         
         // Extract TCP Flags (Byte 33 in IP + TCP header)
@@ -147,59 +194,23 @@ public class NetworkUtilities
         
         if (isRst) 
             return 2;
-        return isAck ? 1 : 0;
+        return isAck ? 1 : 99;
     }
-    
-    /*private int ProcessIPv6Response(byte[] buffer, int received, int targetPort, int sentSourcePort, IPAddress targetIp)
+
+    private int IsUdpOpen(byte[] buffer, bool isIpv4)
     {
-        Console.WriteLine($"[ProcessIPv6Response] Received {received} bytes");
-
-        if (received < 20)
-        {
-            Console.WriteLine("[ProcessIPv6Response] Packet too short to contain TCP header.");
-            return 0;
-        }
-
-        int tcpHeaderStart = 0; // no IPv6 header included
-
-        int tcpSourcePort = (buffer[tcpHeaderStart] << 8) | buffer[tcpHeaderStart + 1];
-        int tcpDestinationPort = (buffer[tcpHeaderStart + 2] << 8) | buffer[tcpHeaderStart + 3];
-        Console.WriteLine($"[ProcessIPv6Response] TCP src port: {tcpSourcePort}, dst port: {tcpDestinationPort}");
-
-        if (tcpSourcePort != targetPort || tcpDestinationPort != sentSourcePort)
-        {
-            Console.WriteLine("[ProcessIPv6Response] Port mismatch, skipping.");
-            return 0;
-        }
-
-        byte tcpFlags = buffer[tcpHeaderStart + 13];
-        Console.WriteLine($"[ProcessIPv6Response] TCP flags: 0x{tcpFlags:X2}");
-
-        if ((tcpFlags & (byte)TcpFlags.Rst) != 0)
-        {
-            Console.WriteLine("[ProcessIPv6Response] TCP RST received — port is closed.");
-            return 2;
-        }
-
-        if ((tcpFlags & (byte)TcpFlags.SynAck) == (byte)TcpFlags.SynAck)
-        {
-            Console.WriteLine("[ProcessIPv6Response] SYN+ACK received — port is open.");
+        if(isIpv4)
+        { 
+            if (buffer[20] == 3 && buffer[21] == 3) // 20(ICMP Type) 21(ICMP Code)
+                return 2;
+            //Console.WriteLine($"Received ICMP Packet  - Type: {buffer[0]}, Code: {buffer[1]}");
             return 1;
         }
-
-        Console.WriteLine("[ProcessIPv6Response] Flags don't match expected values.");
-        return null;
-    }*/
-
-    /*
-    private int CheckUDP(IPAddress address, string interace, int waitTime, int port)
-    {
-        int result = 0;
-        do
-        {
-            _udp.SendPacket(address.ToString(), port);
-            result = _udp.ReceivePacket(waitTime);
-        } while (result == 0);
-        return result;
-    }*/
+        
+        if (buffer[0] == 1 && buffer[1] == 4) // 0(ICMP Type) 1(ICMP Code)
+            return 2;
+        //Console.WriteLine($"Received ICMPv6 Packet  - Type: {buffer[0]}, Code: {buffer[1]}");
+        return 1;
+        
+    }
 }
