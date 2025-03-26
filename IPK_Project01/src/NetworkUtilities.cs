@@ -1,3 +1,8 @@
+using SharpPcap;
+using SharpPcap.LibPcap;
+
+using ProtocolType = System.Net.Sockets.ProtocolType;
+
 namespace IPK_Project01;
 
 public class NetworkUtilities
@@ -37,18 +42,28 @@ public class NetworkUtilities
                 byte[] tcpPacket = new byte[40];
                 _ip.IPv4_Header(ref tcpPacket, srcIp.GetAddressBytes(), destIp.GetAddressBytes(), isTcp);
                 _tcp.TCP_Header(ref tcpPacket, srcIp.GetAddressBytes(), destIp.GetAddressBytes(), srcPort, destPort, 20, true);
+
+                if (destIp.Equals(IPAddress.Parse("127.0.0.1")))
+                {
+                    Console.WriteLine("TCP connection established.");
+                    
+                }
                 
                 socket.SendTo(tcpPacket, endPoint);
+                
+                ReceiveSharpPcap();
+                
+                return 0;
 
-                int result = Receive(srcIp, destIp, srcPort, destPort, waitTime, true, isTcp);
+                /*int result = Receive(srcIp, destIp, srcPort, destPort, waitTime, true, isTcp);
                 if (result == 0)
                 {
                     socket.SendTo(tcpPacket, endPoint);
                     result = Receive(srcIp, destIp, srcPort, destPort, waitTime, true, isTcp);
                 }
-                
+
                 socket.Close();
-                return result;
+                return result;*/
             }
             //IPv6
             else
@@ -113,27 +128,22 @@ public class NetworkUtilities
         if(isTcp)
             socket = new Socket(destIp.AddressFamily, SocketType.Raw, ProtocolType.Tcp);
         else
-            socket = new Socket(destIp.AddressFamily, SocketType.Raw, ProtocolType.Icmp);
-        
-        if (isIpv4)
         {
-            socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.HeaderIncluded, true);
-            socket.Bind(new IPEndPoint(srcIp, destPort)); 
+            if(isIpv4)
+                socket = new Socket(destIp.AddressFamily, SocketType.Raw, ProtocolType.Icmp);
+            else
+                socket = new Socket(destIp.AddressFamily, SocketType.Raw, ProtocolType.IcmpV6);
         }
-        else
-        {
-            socket.Bind(new IPEndPoint(srcIp, destPort));
-        }
-        
+        //Set ip and port where to listen
+        socket.Bind(new IPEndPoint(srcIp, destPort));
         socket.ReceiveTimeout = waitTime;
-        EndPoint endPoint = new IPEndPoint(destIp, 0);
         
         DateTime startTime = DateTime.Now;
         try
         {
             while ((startTime.Millisecond + waitTime) >= DateTime.Now.Millisecond)
             {
-                int received = socket.ReceiveFrom(buffer, ref endPoint);
+                int received = socket.Receive(buffer);
                 if (received > 0)
                 {
                     if(isTcp)
@@ -201,7 +211,7 @@ public class NetworkUtilities
     {
         if(isIpv4)
         { 
-            if (buffer[20] == 3 && buffer[21] == 3) // 20(ICMP Type) 21(ICMP Code)
+            if (buffer[20] == 3 && buffer[21] == 3) // 20(ICMP Type) 21(ICMP Code)j
                 return 2;
             //Console.WriteLine($"Received ICMP Packet  - Type: {buffer[0]}, Code: {buffer[1]}");
             return 1;
@@ -212,5 +222,90 @@ public class NetworkUtilities
         //Console.WriteLine($"Received ICMPv6 Packet  - Type: {buffer[0]}, Code: {buffer[1]}");
         return 1;
         
+    }
+
+
+    private void ReceiveSharpPcap()
+    {
+        // Print SharpPcap version
+        var ver = Pcap.SharpPcapVersion;
+        Console.WriteLine("SharpPcap {0}, Example5.PcapFilter.cs\n", ver);
+
+        // Retrieve the device list
+        var devices = CaptureDeviceList.Instance;
+
+        // If no devices were found print an error
+        if (devices.Count < 1)
+        {
+            Console.WriteLine("No devices were found on this machine");
+            return;
+        }
+
+        Console.WriteLine("The following devices are available on this machine:");
+        Console.WriteLine("----------------------------------------------------");
+        Console.WriteLine();
+
+        int i = 0;
+
+        // Scan the list printing every entry
+        foreach (var dev in devices)
+        {
+            Console.WriteLine("{0}) {1}", i, dev.Description);
+            i++;
+        }
+
+        Console.WriteLine();
+        Console.Write("-- Please choose a device to capture: ");
+        i = int.Parse(Console.ReadLine());
+
+        using var device = devices[i];
+
+        //Register our handler function to the 'packet arrival' event
+        device.OnPacketArrival +=
+            new PacketArrivalEventHandler(device_OnPacketArrival);
+
+        //Open the device for capturing
+        int readTimeoutMilliseconds = 1000;
+        device.Open(DeviceModes.Promiscuous, readTimeoutMilliseconds);
+
+        // tcpdump filter to capture only TCP/IP packets
+        string filter = "ip and tcp";
+        device.Filter = filter;
+
+        Console.WriteLine();
+        Console.WriteLine
+        ("-- The following tcpdump filter will be applied: \"{0}\"",
+            filter);
+        Console.WriteLine
+        ("-- Listening on {0}, hit 'Ctrl-C' to exit...",
+            device.Description);
+
+        // Start capture packets
+        device.Capture();
+    }
+
+    private void device_OnPacketArrival(object sender, PacketCapture e)
+    {
+        Console.WriteLine(e.GetPacket());
+    }
+
+    private static void device_OnPacketArrivaldd(object sender, PacketCapture e)
+    {
+        Console.WriteLine(e.GetPacket());
+        
+        /*var tcp = (TcpPacket)e.Packet.Extract(typeof(TcpPacket));
+        if(tcp != null)
+        {
+            DateTime time = e.Packet.Timeval.Date;
+            int len = e.Packet.Data.Length;
+ 
+            string srcIp = tcp.SourceAddress;
+            string dstIp = tcp.DestinationAddress;
+
+            Console.WriteLine("{0}:{1}:{2},{3} Len={4}",
+                time.Hour, time.Minute, time.Second,
+                time.Millisecond, len);
+            Console.WriteLine(e.Packet.ToString());
+        }*/
     }
 }
