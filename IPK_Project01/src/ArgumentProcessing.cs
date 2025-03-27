@@ -62,9 +62,19 @@ public class ArgumentProcessing
                         if (arg.Contains("-"))
                         {
                             int num;
-                            int.TryParse(arg.Split("-")[0], out num);
+                            bool result = int.TryParse(arg.Split("-")[0], out num);
+                            if(result == false)
+                            {
+                                PrintAssessibleInterfaces();
+                                return false;
+                            }
                             port[index] = num;
-                            int.TryParse(arg.Split("-")[1], out num);
+                            result = int.TryParse(arg.Split("-")[1], out num);
+                            if(result == false)
+                            {
+                                PrintAssessibleInterfaces();
+                                return false;
+                            }
                             port[index + 1] = num;
                         }
                         else if (arg.Contains(","))
@@ -72,13 +82,28 @@ public class ArgumentProcessing
                             int[] strArray = new int[arg.Split(",").Length];
                             int i = 0;
                             foreach (string currPort in arg.Split(","))
-                                strArray[i++] = int.Parse(currPort);
+                            {
+                                int num = 0;
+                                bool result = int.TryParse(currPort, out num);
+                                if(result == false)
+                                {
+                                    PrintAssessibleInterfaces();
+                                    return false;
+                                }
+                                strArray[i++] = num;
+                            }
+                                
                             port[index] = strArray;
                         }
                         else
                         {
                             int num;
-                            int.TryParse(arg, out num);
+                            bool result = int.TryParse(arg, out num);
+                            if(result == false)
+                            {
+                                PrintAssessibleInterfaces();
+                                return false;
+                            }
                             port[index] = num;
                         }
                         break;

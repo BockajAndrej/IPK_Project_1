@@ -17,24 +17,24 @@ public class ArgumentUnitTest1
         _waitTime = 0;
         
         _ap = new IPK_Project01.ArgumentProcessing();
-
     }
     
     [Fact]
     public void CorrectContinueTest1()
     {
-        Assert.True(_ap.Parser(new [] { "./ipk-l4-scan", "-i", "eth0", "-u", "53,67", "www.vutbr.cz" }, ref _url, ref _interfaceName, ref _port, ref _waitTime));
+        Assert.True(_ap.Parser(new [] { "-i", "enp0s3", "-u", "53,67", "www.vutbr.cz" }, ref _url, ref _interfaceName, ref _port, ref _waitTime));
     }
     
     [Fact]
     public void CorrectStopTest2()
     {
-        Assert.False(_ap.Parser(new [] { "./ipk-l4-scan", "-i",  "-u", "53,67", "www.vutbr.cz" }, ref _url, ref _interfaceName, ref _port, ref _waitTime));
+        Assert.False(_ap.Parser(new [] { "-i", "-u", "53,67", "www.vutbr.cz" }, ref _url, ref _interfaceName, ref _port, ref _waitTime));
+        Assert.False(_ap.Parser(new [] { "-i", "enp0s3", "-u", "www.vutbr.cz" }, ref _url, ref _interfaceName, ref _port, ref _waitTime));
     }
     [Fact]
     public void IncorrectTest3()
     {
-        Assert.Throws<Exception>(() => _ap.Parser(new [] { "./ipk-l4-scan", "-i", "eth0", "-u", "53,67", "www.vutbr.cz", "123" }, ref _url, ref _interfaceName, ref _port, ref _waitTime));
-        Assert.Throws<Exception>(() => _ap.Parser(new [] { "./ipk-l4-scan", "-i", "eth0", "-u", "53,67", "www.vutbr.cz", "-i" ,"123" }, ref _url, ref _interfaceName, ref _port, ref _waitTime));
+        Assert.Throws<Exception>(() => _ap.Parser(new [] { "-i", "enp0s3", "-u", "53,67", "www.vutbr.cz", "123" }, ref _url, ref _interfaceName, ref _port, ref _waitTime));
+        Assert.Throws<Exception>(() => _ap.Parser(new [] { "-i", "enp0s3", "-u", "53,67", "www.vutbr.cz", "-i" ,"123" }, ref _url, ref _interfaceName, ref _port, ref _waitTime));
     }
 }
